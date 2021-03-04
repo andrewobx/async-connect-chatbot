@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="amazon-connect-chat-interface.js"></script>
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="shortcut icon" href="favicon.ico">
+</head>
+<body>
+    <script>
+        $(document).ready((a) => {
+            connect.ChatInterface.init({
+                containerId: 'amazon-chat',
+                headerConfig: {
+                    isHTML: true,
+                    render: () => {
+                        return  (`
+                            <div class="header-wrapper">
+                                <h2 class="welcome-text">Chat Demo</h2>
+                                <p id="chatDescription">You can modify this header or use the default.</p>
+                            </div>
+                        `)
+                    }
+                }
+            });
+        });
+
+        $(function () {
+            $('#contactDetails').submit(function (e) {
+                e.preventDefault();
+                var enableAttachments = "${enableAttachments}";
+                var customerName = $('#firstName').val();
+                var username = $('#username').val();
+                if (!customerName || !username) {
+                    alert('you must enter a name & username');
+                    document.getElementById("contactDetails").reset();
+                } else {
+
+                    console.log("this is the first name:" + customerName);
+                    console.log("this is the username: " + username);
+                    document.getElementById("contactDetails").reset();
+                    connect.ChatInterface.initiateChat({
+                        name: customerName,
+                        username: username,
+                        region: "${region}",
+                        apiGatewayEndpoint: "https://${apiId}.execute-api.${region}.amazonaws.com/Prod",
+                        contactAttributes: JSON.stringify({
+                            "customerName": customerName
+                        }),
+                        contactFlowId: "${contactFlowId}",
+                        instanceId: "${instanceId}",
+                        featurePermissions: {
+                            "ATTACHMENTS": enableAttachments==='true',  // this is the override flag from user for attachments
+                        }
+                    },successHandler, failureHandler);
+
+                    $('#firstName').blur();
+                    $('#username').blur();
+                    document.getElementById("startChat").disabled = true;
+                    document.getElementById("firstName").disabled = true;
+                    document.getElementById("username").disabled = true;
+                    $("#nav").css("width", "1063");
+                    $('#chatWrapper').hide();
+                    $("#section-chat").show("slide");
+                    $("#section-chat").draggable({
+                        handle: ".header-wrapper"
+                    });
+                    $("#divSpinner").delay(310).fadeIn();
+                }
+
+            });
+        });
+
+        //Chat Management
+
+
+        function successHandler(chatSession) {
+            window.chatSession = chatSession;
+
+            // chat connected
+
+            $("#divSpinner").fadeOut(200);
+            $('#chatWrapper').fadeIn(400);
+
+            //Change the incoming data set
+            chatSession.incomingItemDecorator = function (item) {
+                if (["SYSTEM_MESSAGE"].indexOf(item.displayName) !== -1) {
+                    item.displayName = "System Message";
+                }
+
+                if (chatSession.transcript.length > 0) {
+                    var transcriptItem = chatSession.transcript[chatSession.transcript.length - 1];
+                    if (transcriptItem.transportDetails.direction === "Incoming") {
+                        var chatDescription = "This is a demo of a customer chat experience.";
+                        var name = transcriptItem.displayName;
+                        if (["prod", "$LATEST", "AI Assistant", "SYSTEM_MESSAGE", "System Message"].indexOf(name) === -1) {
+                            chatDescription = "You are now chatting with " + name;
+                        }
+                        document.getElementById("chatDescription").innerHTML = chatDescription;
+                    }
+                }
+
+                return item;
+            }
+
+            chatSession.onIncoming(function (data) {
+                console.log("incoming message:|| " + JSON.stringify(data));
+            });
+
+            chatSession.onOutgoing(function (data) {
+                //  console.log("outgoing message: " + JSON.stringify(data));
+            });
+
+            chatSession.onChatDisconnected(function (data) {
+                resetForm();
+            });
+
+            connect.ChatInterface.init({
+                containerId: 'amazon-chat',
+                headerConfig: {
+                    isHTML: true,
+                    render: () => {
+                        return  (`
+                            <div class="header-wrapper">
+                                <h2 class="welcome-text">Chat Demo</h2>
+                                <p id="chatDescription">You can modify this header or use the default.</p>
+                            </div>
+                        `)
+                    }
+                }
+            });
+        }
+
+
+
+        function failureHandler(error) {
+            // chat failed
+            console.log("failed", error);
+        }
+
+        function resetForm() {
+            document.getElementById("startChat").disabled = false;
+            document.getElementById("firstName").disabled = false;
+            document.getElementById("username").disabled = false;
+            $("#section-chat").removeAttr('style');
+            $("#nav").css("width", "690");
+            $("#section-chat").hide("slide");
+            document.getElementById("contactDetails").reset();
+        }
+    </script>
+    <div class="wrap">
+        <section class="section-main" id="section-main">
+            <header>
+                <h1 align="center" style="font-size: 1.5em">Amazon Connect Omni-Channel Demo</h1>
+            </header>
+
+            <form name="contactDetails" id="contactDetails" style="padding-top: 30px">
+                <fieldset>
+                    <div>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <input name="firstName" type="text" id="firstName" placeholder="First Name"
+                                            style="width:161px;">
+                                    </td>
+                                    <td>
+                                        <input name="username" type="text" id="username" placeholder="Username"
+                                            style="width:161px;">
+                                    </td>
+                                    <td style="padding-left: 10px;">
+                                        <input type="submit" style="padding-left: 10px;" class="submit" id="startChat"
+                                            value="Start Chat"></input>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+
+                    </div>
+
+                </fieldset>
+            </form>
+        </section>
+
+      <div id='amazon-chat'></div>
+    </div>
+</body>
+</html>
